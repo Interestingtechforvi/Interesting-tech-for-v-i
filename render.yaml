@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: whatsapp-bot
+    env: node
+    plan: free
+    region: oregon  # or frankfurt, singapore, etc.
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+    autoDeploy: true
+    disk:
+      name: auth-storage
+      mountPath: /opt/render/project/src/auth_info_multi
+      sizeGB: 1
