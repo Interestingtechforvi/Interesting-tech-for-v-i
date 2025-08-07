@@ -1,0 +1,23 @@
+---
+services:
+  - type: web
+    name: whatsapp-ai-bot
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
+      - key: PORT
+        value: 3000
+    disk:
+      name: auth_info_multi
+      mountPath: /app/auth_info_multi
+      sizeGB: 1
+    autoDeploy: true
+---
