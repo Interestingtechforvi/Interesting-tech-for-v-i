@@ -12,10 +12,9 @@ const {
 } = require("@whiskeysockets/baileys");
 
 // Import custom modules
-const { generateResponse, getModelInfo } = require("./gemini_config");
-const { processAudio, getTranscriptionStatus } = require("./audio_transcribtion"); // Note: transcribtion not transcription
-const { extractPdfText, processImage, analyzePdfContent, getMediaProcessingStatus } = require("./media_processor");
-
+const { generateResponse, getModelInfo } = require("./gemini-config.js");
+const { processAudio, getTranscriptionStatus } = require("./audio-transcription.js");
+const { extractPdfText, processImage, analyzePdfContent, getMediaProcessingStatus } = require("./media-processor.js");
 // --- Global Variables ---
 const app = express();
 let qrCodeImage = "";
