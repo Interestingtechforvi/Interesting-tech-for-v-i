@@ -13,7 +13,7 @@ const {
 
 // Import custom modules
 const { generateResponse, getModelInfo } = require("./gemini_config");
-const { processAudio, getTranscriptionStatus } = require("./audio_transcription");
+const { processAudio, getTranscriptionStatus } = require("./audio_transcribtion"); // Note: transcribtion not transcription
 const { extractPdfText, processImage, analyzePdfContent, getMediaProcessingStatus } = require("./media_processor");
 
 // --- Global Variables ---
