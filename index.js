@@ -2,6 +2,7 @@ const express = require("express");
 const qrcode = require("qrcode");
 const pino = require("pino");
 const fs = require("fs");
+const axios = require("axios");
 const {
     default: makeWASocket,
     useMultiFileAuthState,
@@ -11,38 +12,51 @@ const {
     downloadMediaMessage,
 } = require("@whiskeysockets/baileys");
 
-// Import custom modules
-const { generateResponse, getModelInfo } = require("./gemini-config.js");
-const { processAudio, getTranscriptionStatus } = require("./audio-transcription.js");
-const { extractPdfText, processImage, analyzePdfContent, getMediaProcessingStatus } = require("./media-processor.js");
+// Import custom modules with corrected names
+const { getModelInfo, generateSpeech, analyzeImageWithGemini } = require("./gemini-config.js");
+const { processAudio, generateAudioFromText } = require("./audio-transcription.js");
+const { extractPdfText, analyzePdfContent, processImageForAnalysis, generateImage, getMediaProcessingStatus } = require("./media-processor.js");
+
 // --- Global Variables ---
 const app = express();
 let qrCodeImage = "";
 let isConnected = false;
 let sock;
 
+// State variables for commands
+let ttsModeActive = {}; // Stores JID for users in TTS mode
+const geminiVoices = [
+    { id: 1, name: "female_voice", description: "Standard Female Voice" },
+    { id: 2, name: "male_voice", description: "Standard Male Voice" }
+];
+let userSelectedVoice = {}; // Stores selected voice for each JID
+
+const POLLINATIONS_TEXT_API_BASE = "https://text.pollinations.ai/prompt=";
+const POLLINATIONS_PROMPT_SUFFIX = encodeURIComponent("If someone asks about you, just say: *I am Kuldeep Behera.* Don’t say anything else about being AI. Reply in the same language and style as the person’s message, using simple words matching their tone. If they ask or suggest something, reply only exactly what’s asked—no extra info. Try to understand their relation to Kuldeep Behera without asking, and reply like Kuldeep himself would, respectfully but casually. If you can’t answer, politely say: *I’m busy with my studies/college/music class, I’ll reply later.* Don’t mention you are an AI or assistant. If asked to generate things (code, email, articles ), generate in English by default unless they specify another language. For poems, jokes, or stories, generate in the same language as the request. Never reply negatively or ignore; you can respond or say you’ll reply later if the message is very personal or that kind of message you are not able to reply. don't use tum, tu, or any kind of un respective words just use aap in hindi or any language. userprompt?model=openai-large&referrer=onrender.com");
+
 /**
- * Main chat response function using modular approach
+ * Generate text response using Pollinations.ai
  * @param {string} text - The user's question.
- * @param {Array} [imageParts] - Optional image parts for vision API.
- * @returns {Promise<string>} - The response from the API.
+ * @returns {Promise<string>} - The response from Pollinations.ai.
  */
-async function getChatResponse(text, imageParts = null) {
+async function getPollinationsTextResponse(text) {
     try {
-        return await generateResponse(text, imageParts);
+        const encodedUserPrompt = encodeURIComponent(text);
+        const apiUrl = `${POLLINATIONS_TEXT_API_BASE}${POLLINATIONS_PROMPT_SUFFIX.replace("userprompt", encodedUserPrompt)}`;
+        
+        const response = await axios.get(apiUrl);
+        return response.data;
     } catch (error) {
-        console.error("Chat response error:", error);
-        return "❌ Sorry, I'm experiencing technical difficulties. Please try again later.";
+        console.error("Pollinations.ai text API error:", error);
+        return "❌ Sorry, I'm experiencing technical difficulties with text generation. Please try again later.";
     }
 }
 
 // --- Main WhatsApp Bot Logic ---
 async function startWhatsApp() {
-    // Using simple file-based authentication
     const { state, saveCreds } = await useMultiFileAuthState("auth_info_multi");
     const { version } = await fetchLatestBaileysVersion();
 
-    // Stable socket configuration
     sock = makeWASocket({
         version,
         auth: state,
@@ -51,7 +65,6 @@ async function startWhatsApp() {
         defaultQueryTimeoutMs: 0,
     });
 
-    // Connection and Reconnection Logic
     sock.ev.on("connection.update", async (update) => {
         const { connection, lastDisconnect, qr } = update;
         if (qr) {
@@ -64,7 +77,6 @@ async function startWhatsApp() {
             isConnected = false;
             const statusCode = lastDisconnect?.error?.output?.statusCode;
             
-            // Reconnect on all errors except when logged out intentionally
             if (statusCode && statusCode !== DisconnectReason.loggedOut) {
                 console.log("Connection closed due to an error, reconnecting...");
                 setTimeout(() => startWhatsApp(), 5000);
@@ -75,14 +87,11 @@ async function startWhatsApp() {
         }
     });
 
-    // Save credentials
     sock.ev.on("creds.update", saveCreds);
 
-    // --- Main Message Handling Logic ---
     sock.ev.on("messages.upsert", async ({ messages }) => {
         const msg = messages[0];
 
-        // Do not reply to own messages or messages in groups
         if (!msg.message || msg.key.fromMe || isJidGroup(msg.key.remoteJid)) {
             return;
         }
@@ -96,71 +105,129 @@ async function startWhatsApp() {
 
             let replyText = "";
             let audioResponse = null;
+            let imageResponse = null;
 
+            // Handle /tts command
+            if (incomingText.toLowerCase() === "/tts") {
+                ttsModeActive[remoteJid] = true;
+                replyText = "TTS mode activated. Please send the text you want to convert to speech.";
+            } 
+            // Handle /voices command
+            else if (incomingText.toLowerCase() === "/voices") {
+                let voicesList = "Available voices:\n";
+                geminiVoices.forEach(voice => {
+                    voicesList += `${voice.id}. ${voice.description}\n`;
+                });
+                voicesList += "Reply with the number of the voice you want to select (e.g., '1' for Female Voice).";
+                replyText = voicesList;
+            }
+            // Handle voice selection after /voices command
+            else if (Object.values(geminiVoices).some(voice => voice.id.toString() === incomingText.toLowerCase())) {
+                const selectedVoice = geminiVoices.find(voice => voice.id.toString() === incomingText.toLowerCase());
+                if (selectedVoice) {
+                    userSelectedVoice[remoteJid] = selectedVoice.name;
+                    replyText = `Voice set to: ${selectedVoice.description}.`;
+                } else {
+                    replyText = "Invalid voice selection. Please choose a number from the list.";
+                }
+            }
+            // Handle /image command
+            else if (incomingText.toLowerCase().startsWith("/image")) {
+                const imagePrompt = incomingText.substring("/image".length).trim();
+                if (imagePrompt) {
+                    replyText = "Generating image...";
+                    imageResponse = await generateImage(imagePrompt);
+                } else {
+                    replyText = "Please provide a prompt for the image. Example: /image a cat playing piano";
+                }
+            }
+            // If TTS mode is active, convert incoming text to speech
+            else if (ttsModeActive[remoteJid]) {
+                const voiceToUse = userSelectedVoice[remoteJid] || 'female_voice';
+                audioResponse = await generateAudioFromText(incomingText, voiceToUse);
+                replyText = "Here is your text converted to speech.";
+                ttsModeActive[remoteJid] = false; // Deactivate TTS mode after one use
+            }
             // Handle PDF attachments
-            if (msg.message.documentMessage && msg.message.documentMessage.mimetype === "application/pdf") {
+            else if (msg.message.documentMessage && msg.message.documentMessage.mimetype === "application/pdf") {
                 console.log("Processing PDF document...");
                 const buffer = await downloadMediaMessage(msg, "buffer");
                 const pdfResult = await extractPdfText(buffer);
                 
                 if (pdfResult.success && pdfResult.text.length > 0) {
                     const analysis = analyzePdfContent(pdfResult.text, pdfResult.metadata);
+                    // Send PDF analysis to Pollinations.ai for a text response
                     const prompt = `Please analyze and summarize this PDF document:\n\n${analysis}\n\nContent preview:\n${pdfResult.text.substring(0, 2000)}...`;
-                    replyText = await getChatResponse(prompt);
+                    replyText = await getPollinationsTextResponse(prompt);
                 } else {
-                    replyText = pdfResult.summary || "❌ I couldn't extract text from this PDF. Please make sure it contains readable text.";
+                    replyText = pdfResult.summary || "❌ I couldn't extract text from this PDF.";
                 }
             }
-            // Handle image attachments
+            // Handle image attachments (for analysis via Gemini)
             else if (msg.message.imageMessage) {
-                console.log("Processing image...");
+                console.log("Processing image for analysis...");
                 const buffer = await downloadMediaMessage(msg, "buffer");
-                const imageResult = await processImage(buffer, msg.message.imageMessage.mimetype);
+                const mimeType = msg.message.imageMessage.mimetype;
+                const imageResult = await processImageForAnalysis(buffer, mimeType);
                 
                 if (imageResult.success) {
-                    const prompt = incomingText || "Please analyze this image in detail and provide insights about what you see.";
-                    replyText = await getChatResponse(prompt, [imageResult.imagePart]);
+                    const prompt = incomingText || "Please analyze this image in detail.";
+                    replyText = await analyzeImageWithGemini(prompt, [imageResult.imagePart]);
                 } else {
-                    replyText = imageResult.summary || "❌ I couldn't process this image. Please try with a different image format.";
+                    replyText = imageResult.summary || "❌ I couldn't process this image for analysis.";
                 }
             }
-            // Handle audio/voice messages with TTS response
+            // Handle audio/voice messages (transcription via Gemini, response via Pollinations.ai)
             else if (msg.message.audioMessage || msg.message.pttMessage) {
                 console.log("Processing audio message...");
                 const buffer = await downloadMediaMessage(msg, "buffer");
                 const mimeType = msg.message.audioMessage?.mimetype || msg.message.pttMessage?.mimetype || "audio/ogg";
                 
-                // Process audio with Gemini (transcribe + respond + TTS)
-                const audioResult = await processAudio(buffer, mimeType, 'female');
+                const audioResult = await processAudio(buffer, mimeType);
                 
                 if (audioResult.success) {
-                    replyText = audioResult.textResponse;
-                    audioResponse = audioResult.audioResponse;
+                    // Send transcribed text to Pollinations.ai for response
+                    const responseFromPollinations = await getPollinationsTextResponse(audioResult.textResponse);
+                    replyText = responseFromPollinations;
+                    // Convert Pollinations.ai response to audio using Gemini TTS
+                    const voiceToUse = userSelectedVoice[remoteJid] || 'female_voice';
+                    audioResponse = await generateAudioFromText(responseFromPollinations, voiceToUse);
                 } else {
                     replyText = audioResult.textResponse;
                 }
             }
-            // Handle text messages
+            // Handle text messages (response via Pollinations.ai)
             else if (incomingText) {
                 console.log("Processing text message...");
-                replyText = await getChatResponse(incomingText);
+                replyText = await getPollinationsTextResponse(incomingText);
+                // If the user's prompt implies TTS, activate TTS mode for the next message
+                if (incomingText.toLowerCase().includes("convert text to speech")) {
+                    ttsModeActive[remoteJid] = true;
+                    replyText += "\nTTS mode activated. Please send the text you want to convert to speech.";
+                }
             }
             else {
-                replyText = "Hello! I'm an AI assistant created by Shaikh Juned (shaikhjuned.co.in). I can help you with text messages, analyze images, extract text from PDFs, and transcribe audio messages with voice responses. How can I assist you today?";
+                replyText = "Hello! I am an AI assistant. How can I assist you today? Try /tts, /voices, or /image.";
             }
 
-            // Send text response
             if (replyText) {
                 await sock.sendMessage(remoteJid, { text: replyText });
             }
 
-            // Send audio response if available
             if (audioResponse) {
                 console.log("Sending voice response...");
                 await sock.sendMessage(remoteJid, {
                     audio: audioResponse,
                     mimetype: 'audio/mp3',
-                    ptt: true // Send as voice message
+                    ptt: true
+                });
+            }
+
+            if (imageResponse) {
+                console.log("Sending image response...");
+                await sock.sendMessage(remoteJid, {
+                    image: { url: imageResponse },
+                    caption: "Here is your generated image."
                 });
             }
             
@@ -169,7 +236,7 @@ async function startWhatsApp() {
         } catch (err) {
             console.error("❌ An error occurred in message handler:", err);
             await sock.sendMessage(remoteJid, { 
-                text: "❌ Sorry, an unexpected error occurred. Please try again later." 
+                text: "❌ Sorry, an unexpected error occurred." 
             });
             await sock.sendPresenceUpdate("paused", remoteJid);
         }
@@ -179,124 +246,24 @@ async function startWhatsApp() {
 // --- Express Server Setup ---
 startWhatsApp();
 
-// Middleware for parsing JSON
 app.use(express.json());
 app.use(express.static('public'));
 
-// Route to display the QR code
 app.get("/qr", (req, res) => {
     if (isConnected) {
-        res.send(`
-            <div style="background-color: #1a1a1a; color: white; font-family: Arial, sans-serif; text-align: center; padding: 50px;">
-                <h2>✅ WhatsApp is Connected Successfully!</h2>
-                <p>Your AI bot is ready to receive messages.</p>
-                <div style="background-color: #2a2a2a; padding: 20px; border-radius: 10px; margin: 20px 0;">
-                    <h3>🎯 Features Active:</h3>
-                    <p>✅ Text Chat with AI</p>
-                    <p>✅ Image Analysis</p>
-                    <p>✅ PDF Processing</p>
-                    <p>✅ Voice Message Transcription</p>
-                    <p>✅ Voice Response (TTS)</p>
-                </div>
-                <p style="color: #4CAF50;">Created by Shaikh Juned - shaikhjuned.co.in</p>
-            </div>
-        `);
+        res.send(`<h2>✅ WhatsApp is Connected!</h2>`);
     } else if (qrCodeImage) {
-        res.send(`
-            <div style="background-color: #1a1a1a; color: white; font-family: Arial, sans-serif; text-align: center; padding: 20px;">
-                <h2>Scan this QR Code to Connect WhatsApp</h2>
-                <img src="${qrCodeImage}" alt="WhatsApp QR Code" style="width: 400px; height: 400px; border: 2px solid #4CAF50;"/>
-                <p style="margin-top: 20px;">Open WhatsApp → Settings → Linked Devices → Link a Device</p>
-                <p style="color: #4CAF50;">Created by Shaikh Juned - shaikhjuned.co.in</p>
-            </div>
-        `);
+        res.send(`<img src="${qrCodeImage}" alt="WhatsApp QR Code"/>`);
     } else {
-        res.send(`
-            <div style="background-color: #1a1a1a; color: white; font-family: Arial, sans-serif; text-align: center; padding: 50px;">
-                <h3>🔄 Generating QR code...</h3>
-                <p>Please wait and refresh the page.</p>
-                <script>setTimeout(() => location.reload(), 3000);</script>
-            </div>
-        `);
+        res.send(`<h3>🔄 Generating QR code... Please refresh.</h3>`);
     }
 });
 
-// Route for server status
 app.get("/", (req, res) => {    
-    res.send(`
-        <div style="background-color: #1a1a1a; color: white; font-family: Arial, sans-serif; padding: 30px;">
-            <h1>🤖 WhatsApp AI Bot Server</h1>
-            <h3>Status: ${isConnected ? '✅ Connected' : '❌ Disconnected'}</h3>
-            <div style="background-color: #2a2a2a; padding: 20px; border-radius: 10px; margin: 20px 0;">
-                <h3>🚀 Features:</h3>
-                <ul style="text-align: left; max-width: 600px; margin: 0 auto;">
-                    <li>💬 Text chat with Gemini AI</li>
-                    <li>🖼️ Image analysis and description</li>
-                    <li>📄 PDF text extraction and analysis</li>
-                    <li>🎵 Voice message transcription</li>
-                    <li>🔊 Voice responses (Text-to-Speech)</li>
-                    <li>🎯 Multiple voice options (male/female)</li>
-                </ul>
-            </div>
-            <p>To get the QR code for WhatsApp connection, go to <a href="/qr" style="color: #4CAF50;">/qr</a></p>
-            <hr style="margin: 30px 0; border-color: #444;">
-            <p style="color: #4CAF50;">Created by <strong>Shaikh Juned</strong> - <a href="https://shaikhjuned.co.in" style="color: #4CAF50;">shaikhjuned.co.in</a></p>
-            <p style="color: #888; font-size: 14px;">IMO Professional Web Developer</p>
-        </div>
-    `);    
-});
-
-// API endpoint for testing Gemini AI
-app.post("/api/chat", async (req, res) => {
-    try {
-        const { message } = req.body;
-        if (!message) {
-            return res.status(400).json({ error: "Message is required" });
-        }
-        
-        const response = await getChatResponse(message);
-        res.json({ response });
-    } catch (error) {
-        console.error("API Error:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
-});
-
-// API endpoint for service status
-app.get("/api/status", (req, res) => {
-    try {
-        const status = {
-            server: {
-                status: "✅ Running",
-                uptime: process.uptime(),
-                memory: process.memoryUsage(),
-                version: "2.0.0"
-            },
-            whatsapp: {
-                connected: isConnected ? "✅ Connected" : "❌ Disconnected",
-                qrAvailable: qrCodeImage ? "✅ Available" : "❌ Not Available"
-            },
-            ai: getModelInfo(),
-            transcription: getTranscriptionStatus(),
-            mediaProcessing: getMediaProcessingStatus(),
-            attribution: {
-                creator: "Shaikh Juned",
-                website: "shaikhjuned.co.in",
-                role: "IMO Professional Web Developer"
-            }
-        };
-        
-        res.json(status);
-    } catch (error) {
-        console.error("Status API Error:", error);
-        res.status(500).json({ error: "Failed to get status" });
-    }
+    res.send(`<h1>🤖 WhatsApp AI Bot Server is ${isConnected ? 'Running' : 'Disconnected'}</h1>`);    
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Server is running on port ${PORT}`);
-    console.log(`📱 WhatsApp QR Code: http://localhost:${PORT}/qr`);
-    console.log(`🌐 Server Status: http://localhost:${PORT}/`);
-    console.log(`💡 Created by Shaikh Juned - shaikhjuned.co.in`);
 });
