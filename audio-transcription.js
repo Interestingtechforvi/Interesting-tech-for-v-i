@@ -4,10 +4,9 @@ const { transcribeAudioWithGemini, generateSpeech } = require("./gemini-config.j
  * Process audio message (transcribe and respond)
  * @param {Buffer} buffer - Audio buffer
  * @param {string} mimeType - Audio MIME type
- * @param {string} voice - Voice type for response
  * @returns {Promise<Object>} - Response object with text and audio
  */
-async function processAudio(buffer, mimeType, voice = "female") {
+async function processAudio(buffer, mimeType) {
     try {
         console.log("Processing audio with Gemini AI for transcription...");
         
@@ -18,8 +17,8 @@ async function processAudio(buffer, mimeType, voice = "female") {
             return { success: false, textResponse: "I'm sorry, I couldn't transcribe the audio." };
         }
 
-        // The text response will now come from Pollinations.ai, so we just return the transcription
-        // The main index.js will then send this transcription to Pollinations.ai
+        // Return the transcribed text. The main index.js will then send this to Pollinations.ai
+        // and convert the response to audio using generateAudioFromText.
         return { success: true, textResponse: transcribedText, audioResponse: null };
 
     } catch (error) {
@@ -36,7 +35,7 @@ async function processAudio(buffer, mimeType, voice = "female") {
 /**
  * Generate speech from text
  * @param {string} text - Text to convert to speech
- * @param {string} voiceType - Voice type (male/female)
+ * @param {string} voiceType - Voice type (e.g., 'Kore', 'Zephyr', 'male_voice', 'female_voice')
  * @returns {Promise<Buffer>} - Audio buffer
  */
 async function generateAudioFromText(text, voiceType) {
@@ -54,7 +53,7 @@ function getTranscriptionStatus() {
         features: {
             transcription: "✅ Available",
             textToSpeech: "✅ Available",
-            voiceTypes: ["male", "female"]
+            voiceTypes: ["male", "female"] // This will be updated in index.js with the full list
         }
     };
 }
