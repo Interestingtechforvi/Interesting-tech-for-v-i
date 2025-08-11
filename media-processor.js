@@ -1,4 +1,3 @@
-
 const pdf = require("pdf-parse");
 const axios = require("axios");
 const { analyzeImageWithGemini } = require("./gemini-config.js");
