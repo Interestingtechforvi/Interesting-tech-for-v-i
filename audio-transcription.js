@@ -1,3 +1,4 @@
+
 const { transcribeAudioWithGemini, generateSpeech } = require("./gemini-config.js");
 
 /**
@@ -17,7 +18,7 @@ async function processAudio(buffer, mimeType) {
             return { success: false, textResponse: "I'm sorry, I couldn't transcribe the audio." };
         }
 
-        // Return the transcribed text. The main index.js will then send this to Pollinations.ai
+        // Return the transcribed text. The main index.js will then send this to the text generation API
         // and convert the response to audio using generateAudioFromText.
         return { success: true, textResponse: transcribedText, audioResponse: null };
 
