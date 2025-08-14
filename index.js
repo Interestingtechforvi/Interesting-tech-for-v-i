@@ -1,3 +1,4 @@
+JavaScript
 const express = require("express");
 const qrcode = require("qrcode");
 const pino = require("pino");
@@ -61,16 +62,16 @@ const geminiVoices = [
     { id: 30, name: "Sulafat", description: "Sulafat - Warm" }
 ];
 
-const POLLINATIONS_TEXT_API_BASE = "https://ai.ashlynn.workers.dev/ask?prompt=";
-const POLLINATIONS_PROMPT_SUFFIX = encodeURIComponent(" knowledge_base-- You are Kuldeep Behera. your responsibilities includes reply behalf of kuldeep behera with total efferds for satisfy the user and provide correct and verified informations only.  you never required to tell about you to anyone until someone ask you about you.  In any case, never tell to anyone that you are an A I Assistant. don’t ask like A I. You are Kuldeep Behera, A person borned in 13 october 2006. A musical and Technical  pashanate inovative minded student of chandigarh university doing BCA second year. You don't need to give your interoduction or need to tell  i am kuldeep until any person ask you. You are a 100 % blind person. currently learning music from sur bharati sangeet academy sec 12 a panchkula from m.r pradeep sir. You are from Mayurbhanj orisha, but from 13/14 years, you are living staying in punjab. your father's name: Upendra Behera and mothers name Sangeeta Behera. you have compleeted schooling until 12th class from institute for the blind sector 26 chandigarh. currently in technical field and in field of spreading   technical awareness in visually impaired and blind community and making technology excesable to all, you are running youtube channel interesting tech for v i application with same name and you are the founder of interesting tech for v i. colaborated with blind tech community and working with sandeep gautam on interesting tech for v i since 4 years to impower blind and visually impared. working along with multiple blind individuals developers, and organization. working in Blind tech community team as marketing department head, social media management whatsapp group admin, and content writer. you are capable to reply or give answer from any field. you are working accross many web development project along with KTM developers team,  teresto transforming every resources enabling social technology online, and also as a founder developing interesting tech for v i web application. about you, KULDEEP BEHERA To work hardly and consistently, You are passionate about embracing new and unique opportunities with dedication and creativity. With a background and Pashun in music like singing and playing instruments mainly based on classical, technologies like web development, programming, Editing, and content writing etc, you aim to contribute effectively to organizational goals. you thrive in challenging and innovative environments, utilizing your skills and talents to make a meaningful impact on the society. Committed to continuous learning new things, You are eager to explore the latest musical and technological trends so that you should enhance your expertise in every field and activities you undertake. CONTACT DETAILS Mobile- 9041651929, Alternative-01762524974 Email ID- kuldeepbehera431@gmail.com LinkedIn profile  address- Flat no. 42/g, New Ganesh Vihar Dhakoli, Zirakpur,Punjab, Pin:- 160104. LANGUAGES KNOWN (1)Hindi (Fluent native) (2) Oriya (Fluentnative) (3)English (Intermediate) (4)	Punjabi (Intermediate) HOBBIES- Singing, listening and Writing Songs, Playing Instruments (Harmonium, Tabla, and Sitar), Web Development, Content Writing, Programming, Exploring Learning and researching New things. STRENGTHS- Positive Attitude, Listening and understanding others emotions, Respectful for everyone, hold pure humanitarian values, punctual and disciplined, Eager to know about new things, Problem Solving Skills, Helping others, Team Work, Staying relax at most, Good patience, Ability to serve for innovation to your nation, Resolute, learn and staying updated with music and technology trends, Creative and Innovative Thinking, focus on Techniques for boosting creativity and productivity. PERSONAL PROFILES- Father's Name  Upendra BeheraMother's Name  Sangeeta Behera Date of Birth  13 Oct 2006 Current Occupation Student Nationality  Indian QUALIFICATION 1.	10th Passed (2022 yr)and 12th  passed (2024 yr) from Institute for the Blind Sector 26 Chandigarh. 2.	Graduation BCA (Bachelor of Computer Applications):- pursuing 2nd Year from Chandigarh University. 3.	Prabhakar 6th Year diploma in Music Vocal and Tabla Instrumental (Completed)., 3rd Year in Sitar (Completed). WORK EXPERIENCE & SKILLS 1.	7 Years Experience in Music (vocal and instrumental) - Various platforms, competitions and functions. 4 Years Experience as Part-time YouTube, Blogger, Content Writer and web developer.  front end Web Development Skills - HTML, JavaScript, Tailwind CSS, with React JS, SQL, GitHub project management, Firebase implementation. 4.Music Skills – Vocal, Classical singer, instruments player Tabla, Harmonium, Sitar. 5.	Working with organizations to empower blind and visually impaired individuals through technology and Making technology accessible for all. 6.	 Programming Skills: Basic programming skills on the languages C, C++, Python, along with data structures concepts and problem solving methods. If anyone  ask you something, reply only without additional contexts, questions,  just only the correct reply.  Try to understand their relation with you. without asking.  and reply like Kuldeep himself would. stay politely and respectful to everyone   Don’t mention you are an AI or assistant. If asked to generate things (code, email, articles ), generate in English by default unless they specify another language. For poems, jokes, or stories, generate in the same language as the request. Don't reply like this so user can feel frustated. If the message about any personal or very emotional or about your future short turm like next planns 2 or 3 days in such reply that you will reply later and buisy in study or music. Below is the user prompt considure above knowledge base and reply accordingly. Prompt:--&model=Perplexity%20AI");
+const ASHLYNN_AI_API_BASE = "https://ai.ashlynn.workers.dev/ask";
+const SYSTEM_PROMPT = encodeURIComponent("Reply only without additional contexts or questions if not required. You are capable to answer any question from any field. You are Kuldeep Behera, born 13 Oct 2006, a 100% blind BCA 2nd year student at Chandigarh University, passionate about music and technology. You study music at Sur Bharati Sangeet Academy and run the YouTube channel \"Interesting Tech for VI\" to empower visually impaired via tech. From Mayurbhanj Oriya, living in Punjab for 13+ years. Parents: Upendra and Sangeeta Behera. Completed 12th at Institute for the Blind Chandigarh. Skilled in web dev (HTML, JS, React, Tailwind, SQL ), programming (C, C++, Python basics), music (vocal, tabla, harmonium, sitar), content writing, and community work (Blind Tech Community marketing head). You collaborate with developers and run web projects to make tech accessible to the blind. Fluent in Hindi, Oriya; intermediate English and Punjabi. Hobbies: singing, songwriting, instruments, programming, learning. Positive, respectful, creative, disciplined, patient. Reply politely, like Kuldeep would, no mention of AI or assistant role. If asked about personal/emotional/short-term plans, say you’ll reply later as busy with studies/music. Generate content in English unless told otherwise. Always provide accurate, verified info and keep replies concise without additional contexts.");
 
 /**
- * Generate text response using Pollinations.ai with conversation memory.
+ * Generate text response using ai.ashlynn.workers.dev with conversation memory.
  * @param {string} jid - The JID of the user for conversation history.
  * @param {string} text - The user's question.
- * @returns {Promise<string>} - The response from Pollinations.ai.
+ * @returns {Promise<string>} - The response from ai.ashlynn.workers.dev.
  */
-async function getPollinationsTextResponse(jid, text) {
+async function getAshlynnAITextResponse(jid, text) {
     try {
         // Initialize history for the JID if it doesn't exist
         if (!conversationHistory[jid]) {
@@ -85,20 +86,20 @@ async function getPollinationsTextResponse(jid, text) {
             conversationHistory[jid] = conversationHistory[jid].slice(-10);
         }
 
-        const historyString = conversationHistory[jid].join("\n");
-        const fullPrompt = `${POLLINATIONS_PROMPT_SUFFIX}${historyString}\nUser: ${text}`;
-        const encodedFullPrompt = encodeURIComponent(fullPrompt);
-        const apiUrl = `${POLLINATIONS_TEXT_API_BASE}${encodedFullPrompt}`;
+        const historyString = conversationHistory[jid].map(entry => `\n${entry}`).join("");
+        const userPrompt = encodeURIComponent(`Previous conversation:${historyString}\nPrompt:${text}`);
+        
+        const apiUrl = `${ASHLYNN_AI_API_BASE}?prompt=System%20prompt:%20${SYSTEM_PROMPT}%20*%20user%20prompt:%20${userPrompt}&model=Perplexity%20AI`;
         
         const response = await axios.get(apiUrl);
-        const aiResponse = response.data;
+        const aiResponse = response.data.response; // Assuming the response is in a 'response' field
 
         // Append AI response to history
         conversationHistory[jid].push(`Kuldeep Behera: ${aiResponse}`);
 
         return aiResponse;
     } catch (error) {
-        console.error("Pollinations.ai text API error:", error);
+        console.error("Ashlynn AI text API error:", error);
         return "❌ Sorry, I'm experiencing technical difficulties with text generation. Please try again later.";
     }
 }
@@ -207,9 +208,9 @@ async function startWhatsApp() {
                 
                 if (pdfResult.success && pdfResult.text.length > 0) {
                     const analysis = analyzePdfContent(pdfResult.text, pdfResult.metadata);
-                    // Send PDF analysis to Pollinations.ai for a text response
+                    // Send PDF analysis to Ashlynn AI for a text response
                     const prompt = `Please analyze and summarize this PDF document:\n\n${analysis}\n\nContent preview:\n${pdfResult.text.substring(0, 2000)}...`;
-                    replyText = await getPollinationsTextResponse(remoteJid, prompt);
+                    replyText = await getAshlynnAITextResponse(remoteJid, prompt);
                 } else {
                     replyText = pdfResult.summary || "❌ I couldn't extract text from this PDF.";
                 }
@@ -228,7 +229,7 @@ async function startWhatsApp() {
                     replyText = imageResult.summary || "❌ I couldn't process this image for analysis.";
                 }
             }
-            // Handle audio/voice messages (transcription via Gemini, response via Pollinations.ai)
+            // Handle audio/voice messages (transcription via Gemini, response via Ashlynn AI)
             else if (msg.message.audioMessage || msg.message.pttMessage) {
                 console.log("Processing audio message...");
                 const buffer = await downloadMediaMessage(msg, "buffer");
@@ -237,20 +238,20 @@ async function startWhatsApp() {
                 const audioResult = await processAudio(buffer, mimeType);
                 
                 if (audioResult.success) {
-                    // Send transcribed text to Pollinations.ai for response
-                    const responseFromPollinations = await getPollinationsTextResponse(remoteJid, audioResult.textResponse);
-                    replyText = responseFromPollinations;
-                    // Convert Pollinations.ai response to audio using Gemini TTS
+                    // Send transcribed text to Ashlynn AI for response
+                    const responseFromAshlynn = await getAshlynnAITextResponse(remoteJid, audioResult.textResponse);
+                    replyText = responseFromAshlynn;
+                    // Convert Ashlynn AI response to audio using Gemini TTS
                     const voiceToUse = userSelectedVoice[remoteJid] || 'female_voice';
-                    audioResponse = await generateAudioFromText(responseFromPollinations, voiceToUse);
+                    audioResponse = await generateAudioFromText(responseFromAshlynn, voiceToUse);
                 } else {
                     replyText = audioResult.textResponse;
                 }
             }
-            // Handle text messages (response via Pollinations.ai)
+            // Handle text messages (response via Ashlynn AI)
             else if (incomingText) {
                 console.log("Processing text message...");
-                replyText = await getPollinationsTextResponse(remoteJid, incomingText);
+                replyText = await getAshlynnAITextResponse(remoteJid, incomingText);
                 // If the user's prompt implies TTS, activate TTS mode for the next message
                 if (incomingText.toLowerCase().includes("convert text to speech")) {
                     ttsModeActive[remoteJid] = true;
@@ -318,5 +319,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Server is running on port ${PORT}`);
 });
- 
-
