@@ -2,9 +2,11 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const fetch = require("node-fetch");
 
 // Make sure to set your GEMINI_API_KEY in Render's environment variables
-const GEMINI_API_KEY = "AIzaSyDYeLxp7Jp5qSypbVBPy9v_XYmz7Sc1qfs";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+
 // Vision model for image analysis (also used for audio transcription)
 const visionModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
