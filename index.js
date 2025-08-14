@@ -1,4 +1,3 @@
-JavaScript
 const express = require("express");
 const qrcode = require("qrcode");
 const pino = require("pino");
