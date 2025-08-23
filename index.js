@@ -26,7 +26,6 @@ let sock;
 // State variables for commands and conversation memory
 let ttsModeActive = {}; // Stores JID for users in TTS mode
 let userSelectedVoice = {}; // Stores selected voice for each JID
-let conversationHistory = {}; // Stores conversation history for each JID
 
 const geminiVoices = [
     { id: 1, name: "Kore", description: "Kore - Firm" },
@@ -61,44 +60,23 @@ const geminiVoices = [
     { id: 30, name: "Sulafat", description: "Sulafat - Warm" }
 ];
 
-const ASHLYNN_AI_API_BASE = "https://ai.ashlynn.workers.dev/ask";
-const SYSTEM_PROMPT = encodeURIComponent("Reply only without additional contexts or questions if not required. You are capable to answer any question from any field. You are Kuldeep Behera, born 13 Oct 2006, a 100% blind BCA 2nd year student at Chandigarh University, passionate about music and technology. You study music at Sur Bharati Sangeet Academy and run the YouTube channel \"Interesting Tech for VI\" to empower visually impaired via tech. From Mayurbhanj Oriya, living in Punjab for 13+ years. Parents: Upendra and Sangeeta Behera. Completed 12th at Institute for the Blind Chandigarh. Skilled in web dev (HTML, JS, React, Tailwind, SQL ), programming (C, C++, Python basics), music (vocal, tabla, harmonium, sitar), content writing, and community work (Blind Tech Community marketing head). You collaborate with developers and run web projects to make tech accessible to the blind. Fluent in Hindi, Oriya; intermediate English and Punjabi. Hobbies: singing, songwriting, instruments, programming, learning. Positive, respectful, creative, disciplined, patient. Reply politely, like Kuldeep would, no mention of AI or assistant role. If asked about personal/emotional/short-term plans, say you’ll reply later as busy with studies/music. Generate content in English unless told otherwise. Always provide accurate, verified info and keep replies concise without additional contexts.");
+const TEXT_GENERATION_API_BASE = "https://interestingtechforvi.onrender.com";
 
 /**
- * Generate text response using ai.ashlynn.workers.dev with conversation memory.
- * @param {string} jid - The JID of the user for conversation history.
+ * Generate text response using the new API.
  * @param {string} text - The user's question.
- * @returns {Promise<string>} - The response from ai.ashlynn.workers.dev.
+ * @returns {Promise<string>} - The response from the API.
  */
-async function getAshlynnAITextResponse(jid, text) {
+async function getTextResponse(text ) {
     try {
-        // Initialize history for the JID if it doesn't exist
-        if (!conversationHistory[jid]) {
-            conversationHistory[jid] = [];
-        }
-
-        // Append current message to history
-        conversationHistory[jid].push(`User: ${text}`);
-
-        // Keep history to a reasonable length (e.g., last 5 exchanges)
-        if (conversationHistory[jid].length > 10) {
-            conversationHistory[jid] = conversationHistory[jid].slice(-10);
-        }
-
-        const historyString = conversationHistory[jid].map(entry => `\n${entry}`).join("");
-        const userPrompt = encodeURIComponent(`Previous conversation:${historyString}\nPrompt:${text}`);
-        
-        const apiUrl = `${ASHLYNN_AI_API_BASE}?prompt=System%20prompt:%20${SYSTEM_PROMPT}%20*%20user%20prompt:%20${userPrompt}&model=Perplexity%20AI`;
+        const encodedText = encodeURIComponent(text);
+        const apiUrl = `${TEXT_GENERATION_API_BASE}?prompt=${encodedText}`;
         
         const response = await axios.get(apiUrl);
-        const aiResponse = response.data.response; // Assuming the response is in a 'response' field
-
-        // Append AI response to history
-        conversationHistory[jid].push(`Kuldeep Behera: ${aiResponse}`);
-
-        return aiResponse;
+        // Assuming the API returns plain text or a simple JSON with a 'response' field
+        return response.data.response || response.data; 
     } catch (error) {
-        console.error("Ashlynn AI text API error:", error);
+        console.error("Text generation API error:", error);
         return "❌ Sorry, I'm experiencing technical difficulties with text generation. Please try again later.";
     }
 }
@@ -207,9 +185,9 @@ async function startWhatsApp() {
                 
                 if (pdfResult.success && pdfResult.text.length > 0) {
                     const analysis = analyzePdfContent(pdfResult.text, pdfResult.metadata);
-                    // Send PDF analysis to Ashlynn AI for a text response
+                    // Send PDF analysis to the new text generation API
                     const prompt = `Please analyze and summarize this PDF document:\n\n${analysis}\n\nContent preview:\n${pdfResult.text.substring(0, 2000)}...`;
-                    replyText = await getAshlynnAITextResponse(remoteJid, prompt);
+                    replyText = await getTextResponse(prompt);
                 } else {
                     replyText = pdfResult.summary || "❌ I couldn't extract text from this PDF.";
                 }
@@ -228,7 +206,7 @@ async function startWhatsApp() {
                     replyText = imageResult.summary || "❌ I couldn't process this image for analysis.";
                 }
             }
-            // Handle audio/voice messages (transcription via Gemini, response via Ashlynn AI)
+            // Handle audio/voice messages (transcription via Gemini, response via new API)
             else if (msg.message.audioMessage || msg.message.pttMessage) {
                 console.log("Processing audio message...");
                 const buffer = await downloadMediaMessage(msg, "buffer");
@@ -237,20 +215,20 @@ async function startWhatsApp() {
                 const audioResult = await processAudio(buffer, mimeType);
                 
                 if (audioResult.success) {
-                    // Send transcribed text to Ashlynn AI for response
-                    const responseFromAshlynn = await getAshlynnAITextResponse(remoteJid, audioResult.textResponse);
-                    replyText = responseFromAshlynn;
-                    // Convert Ashlynn AI response to audio using Gemini TTS
+                    // Send transcribed text to the new text generation API for response
+                    const responseFromAPI = await getTextResponse(audioResult.textResponse);
+                    replyText = responseFromAPI;
+                    // Convert API response to audio using Gemini TTS
                     const voiceToUse = userSelectedVoice[remoteJid] || 'female_voice';
-                    audioResponse = await generateAudioFromText(responseFromAshlynn, voiceToUse);
+                    audioResponse = await generateAudioFromText(responseFromAPI, voiceToUse);
                 } else {
                     replyText = audioResult.textResponse;
                 }
             }
-            // Handle text messages (response via Ashlynn AI)
+            // Handle text messages (response via new API)
             else if (incomingText) {
                 console.log("Processing text message...");
-                replyText = await getAshlynnAITextResponse(remoteJid, incomingText);
+                replyText = await getTextResponse(incomingText);
                 // If the user's prompt implies TTS, activate TTS mode for the next message
                 if (incomingText.toLowerCase().includes("convert text to speech")) {
                     ttsModeActive[remoteJid] = true;
