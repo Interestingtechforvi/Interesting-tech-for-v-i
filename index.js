@@ -60,7 +60,7 @@ const geminiVoices = [
     { id: 30, name: "Sulafat", description: "Sulafat - Warm" }
 ];
 
-const TEXT_GENERATION_API_BASE = "https://interestingtechforvi.onrender.com";
+const TEXT_GENERATION_API_BASE = "https://interestingtechforvi.onrender.com/chat";
 
 /**
  * Generate text response using the new API.
